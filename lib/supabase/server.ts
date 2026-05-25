@@ -15,15 +15,15 @@ export const createClient = () => {
         set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options });
-          } catch (error) {
-            // Tratamento para Server Components que não podem setar cookies
+          } catch {
+            // Silencia erro esperado em Server Components de leitura
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options });
-          } catch (error) {
-            // Tratamento para Server Components que não podem remover cookies
+          } catch {
+            // Silencia erro esperado em Server Components de leitura
           }
         },
       },

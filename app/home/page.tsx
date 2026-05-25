@@ -1,11 +1,20 @@
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { Bell, Flame, Dumbbell, Activity, Calendar, Trophy, Loader2, ArrowRight, AlertCircle } from 'lucide-react';import Link from 'next/link';
+import { Bell, Flame, Dumbbell, Activity, Calendar, Trophy, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
 
-// ============================================================================
-// COMPONENTE PRINCIPAL
-// ============================================================================
+interface RoutineExercise {
+  base_exercises: {
+    muscle_group: string;
+  } | null;
+}
+
+interface Routine {
+  id: string;
+  name: string;
+  routine_exercises: RoutineExercise[] | null;
+}
 
 export default function HomePage() {
   return (
@@ -16,10 +25,6 @@ export default function HomePage() {
     </main>
   );
 }
-
-// ============================================================================
-// BUSCA E LÓGICA DE DADOS (SERVER COMPONENT)
-// ============================================================================
 
 async function DashboardData() {
   const cookieStore = cookies();
@@ -39,7 +44,6 @@ async function DashboardData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Não autenticado');
 
-    // 1. Fetch de Dados em Paralelo
     const [profileRes, sessionsRes, routinesRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase.from('workout_sessions').select('*').eq('user_id', user.id),
@@ -50,13 +54,11 @@ async function DashboardData() {
     const sessions = sessionsRes.data || [];
     const sessionIds = sessions.map(s => s.id);
 
-    // Fetch de Sets (Apenas das sessões do usuário)
     const setsRes = sessionIds.length > 0 
       ? await supabase.from('workout_sets').select('*, base_exercises(muscle_group)').in('session_id', sessionIds).eq('completed', true)
       : { data: [] };
     const sets = setsRes.data || [];
 
-    // 2. Variáveis de Data e Saudação
     const now = new Date();
     const hour = now.getHours();
     let greeting = 'Boa noite';
@@ -65,12 +67,10 @@ async function DashboardData() {
 
     const firstName = profile?.full_name?.split(' ')[0] || 'Atleta';
     
-    // Início da semana (Segunda-feira)
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
     startOfWeek.setHours(0, 0, 0, 0);
 
-    // 3. Resumo Semanal e PRs
     const thisWeekSessions = sessions.filter(s => new Date(s.finished_at || s.created_at) >= startOfWeek && s.status === 'completed');
     const workoutsCount = thisWeekSessions.length;
     const totalVolume = thisWeekSessions.reduce((sum, s) => sum + (Number(s.total_volume_kg) || 0), 0);
@@ -79,7 +79,6 @@ async function DashboardData() {
     let prCount = 0;
     const historicalMaxes: Record<string, number> = {};
     
-    // Ordena ASC para montar histórico e contar PRs
     const sortedSets = [...sets].sort((a, b) => new Date(a.completed_at || a.created_at).getTime() - new Date(b.completed_at || b.created_at).getTime());
     
     sortedSets.forEach(set => {
@@ -102,7 +101,6 @@ async function DashboardData() {
       }
     });
 
-    // 4. Lógica de Recuperação Muscular
     const targetMuscles = ['Peito', 'Costas', 'Ombro', 'Bíceps', 'Tríceps', 'Quadríceps', 'Posterior', 'Glúteos', 'Core', 'Panturrilha'];
     
     const muscleRecovery = targetMuscles.map(muscle => {
@@ -113,7 +111,7 @@ async function DashboardData() {
       const isHeavy = ['failure', 'top'].includes(latestSet.set_type);
       
       const thresholdFadiga = isHeavy ? 36 : 24;
-      const thresholdPronto = isHeavy ? 60 : 48; // +24h de janela de recuperação
+      const thresholdPronto = isHeavy ? 60 : 48;
       
       const hoursSince = (Date.now() - new Date(latestSet.completed_at || latestSet.created_at).getTime()) / (1000 * 60 * 60);
 
@@ -125,15 +123,13 @@ async function DashboardData() {
       return { muscle, state: 'PRONTO', readyIn: 0 };
     });
 
-    // 5. Sugestão de Treino
-    const routines = routinesRes.data || [];
+    const routines: Routine[] = (routinesRes.data as unknown as Routine[]) || [];
     let suggestedRoutine: any = null;    let maxScore = -999;
     let suggestedMusclesReady: string[] = [];
 
     routines.forEach(routine => {
       let score = 0;
-      // Extrai grupos musculares únicos da ficha
-      const rawMuscles = routine.routine_exercises?.map((re: any) => re.base_exercises?.muscle_group).filter(Boolean) || [];
+      const rawMuscles = routine.routine_exercises?.map((re) => re.base_exercises?.muscle_group).filter(Boolean) || [];
       const routineMuscles = [...new Set(rawMuscles)] as string[];
 
       const musclesReady: string[] = [];
@@ -293,7 +289,8 @@ async function DashboardData() {
       </>
     );
 
-  } catch (error) {
+  } catch (err) {
+    console.error(err);
     return (
       <div className="bg-danger/10 border border-danger p-6 rounded-3xl flex flex-col items-center justify-center text-center mt-20">
         <AlertCircle size={40} className="text-danger mb-4" />
@@ -303,10 +300,6 @@ async function DashboardData() {
     );
   }
 }
-
-// ============================================================================
-// SKELETON LOADER
-// ============================================================================
 
 function HomeSkeleton() {
   return (
@@ -318,9 +311,7 @@ function HomeSkeleton() {
         </div>
         <div className="w-12 h-12 bg-surface-2 rounded-full animate-pulse"></div>
       </div>
-
       <div className="h-32 bg-surface-2 rounded-3xl animate-pulse"></div>
-
       <div>
         <div className="w-32 h-4 bg-surface-2 rounded mb-4 animate-pulse"></div>
         <div className="grid grid-cols-2 gap-4">
@@ -329,7 +320,6 @@ function HomeSkeleton() {
           ))}
         </div>
       </div>
-
       <div>
         <div className="w-48 h-4 bg-surface-2 rounded mb-4 animate-pulse"></div>
         <div className="grid grid-cols-2 gap-3">
@@ -338,7 +328,6 @@ function HomeSkeleton() {
           ))}
         </div>
       </div>
-
       <div className="flex justify-center mt-8">
         <Loader2 size={32} className="text-brand animate-spin" />
       </div>

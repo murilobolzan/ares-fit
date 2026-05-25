@@ -1,14 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-// @ts-ignore
-import './globals.css';
+import '@/app/globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   title: 'AresFit',
   description: 'Sua evolução começa aqui — Web App Mobile-First de Academia',
-  themeColor: '#000000',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -16,6 +14,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  themeColor: '#000000',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
