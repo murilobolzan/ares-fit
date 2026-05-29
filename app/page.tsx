@@ -165,7 +165,7 @@ export default function LandingPage() {
         <div className={`max-w-3xl text-center flex flex-col items-center transition-all duration-1000 transform ${sectionHero.isIntersecting ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           
           <div className="bg-[#FFE600]/10 border border-[#FFE600]/30 text-[#FFE600] rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-wider mb-6 flex items-center gap-1.5 shadow-[0_0_15px_rgba(255,230,0,0.05)]">
-            <span>🔥</span> Mais de 1.000 atletas já treinando
+            <span>🔥</span> Explore sua vida fitness na palma da sua mão!
           </div>
 
           <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-[0.9] flex flex-col mb-6">
@@ -175,7 +175,7 @@ export default function LandingPage() {
           </h2>
 
           <p className="text-[#A1A1AA] text-base md:text-xl font-medium leading-relaxed max-w-xl mb-10">
-            O ecossistema de academia mais completo do Brasil. Desenvolvido para atletas de alto desempenho e personal trainers que levam o planejamento a sério.
+            O ecossistema de academia mais completo do Brasil. Desenvolvido para todos os tipos de atleta e personal trainers que levam o planejamento a sério.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mb-16">
@@ -200,9 +200,9 @@ export default function LandingPage() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <span className="text-[10px] text-[#555558] font-bold uppercase tracking-wider block">Atleta AresFit</span>
-                  <span className="text-sm font-black uppercase">Carlos Silva</span>
+                  <span className="text-sm font-black uppercase">Seu Nome</span>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-[#1A1A1A] border border-[#222225] flex items-center justify-center text-[10px] font-black text-[#FFE600]">CS</div>
+                <div className="w-8 h-8 rounded-full bg-[#1A1A1A] border border-[#222225] flex items-center justify-center text-[10px] font-black text-[#FFE600]">SN</div>
               </div>
 
               {/* Streak Widget */}
@@ -258,16 +258,16 @@ export default function LandingPage() {
       <section className="bg-[#0F0F0F] border-y border-[#222225] py-10 px-6">
         <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-[#222225]">
           <div className="pt-4 md:pt-0">
-            <p className="mb-1"><AnimatedCounter value="1000+" /></p>
-            <p className="text-[#A1A1AA] text-xs font-bold uppercase tracking-widest">Atletas Ativos</p>
+            <p className="mb-1"><AnimatedCounter value="3+ Fichas" /></p>
+            <p className="text-[#A1A1AA] text-xs font-bold uppercase tracking-widest">Acompanhe seus treinos!</p>
           </div>
           <div className="pt-6 md:pt-0">
-            <p className="mb-1"><AnimatedCounter value="50000+" /></p>
+            <p className="mb-1"><AnimatedCounter value="Qualquer tipo de treino!" /></p>
             <p className="text-[#A1A1AA] text-xs font-bold uppercase tracking-widest">Treinos Registrados</p>
           </div>
           <div className="pt-6 md:pt-0">
             <p className="mb-1 flex items-center justify-center gap-1">
-              <AnimatedCounter value="49" /><span className="text-3xl font-black text-[#FFE600] -mt-1">★</span>
+              <AnimatedCounter value="4.9" /><span className="text-3xl font-black text-[#FFE600] -mt-1">★</span>
             </p>
             <p className="text-[#A1A1AA] text-xs font-bold uppercase tracking-widest">Avaliação Média</p>
           </div>
@@ -543,7 +543,7 @@ export default function LandingPage() {
       </section>
 
       {/* ======================= FOOTER ======================= */}
-      // Substitua o trecho final do FOOTER na sua app/page.tsx por este bloco completo:
+      
 
       {/* ======================= FOOTER ATUALIZADO LGPD ======================= */}
       <footer className="bg-[#0F0F0F] border-t border-[#222225] py-12 px-6 text-xs text-[#555558] font-medium">
@@ -561,9 +561,7 @@ export default function LandingPage() {
           <div className="flex flex-wrap justify-center items-center gap-6 text-[#A1A1AA] uppercase tracking-wider text-[10px] font-black">
             <Link href="#funcionalidades" className="hover:text-[#FFE600] transition-colors">Funcionalidades</Link>
             <Link href="/termos" className="hover:text-[#FFE600] transition-colors text-white border-b border-dashed border-[#555558]">Termos de Uso</Link>
-            <Link href="/privacidade" className="hover:text-[#FFE600] transition-colors text-white border-b border-dashed border-[#555558]">Privacidade</Link>
-            <Link href="mailto:privacidade@aresfit.app" className="hover:text-[#FFE600] transition-colors">DPO Contato</Link>
-          </div>
+            <Link href="/privacidade" className="hover:text-[#FFE600] transition-colors text-white border-b border-dashed border-[#555558]">Privacidade</Link>          </div>
 
           {/* Redes Sociais */}
           <div className="flex items-center gap-4 text-[#A1A1AA]">

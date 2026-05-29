@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ subsets: ['latin'] });
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://aresfit.vercel.app';
@@ -83,6 +84,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} bg-[#000000] text-white antialiased`}>
         {children}
+        
+        {/* A "caixa de som" dos balões de notificação */}
+        <Toaster />
         
         {/* Registro do Service Worker (PWA) */}
         <script

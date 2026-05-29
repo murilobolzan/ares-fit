@@ -12,13 +12,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // Instanciar DENTRO da função, não fora
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    // Tenta usar a chave de serviço (Admin), se não achar, usa a chave pública que já configuramos
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    const { data, error } = await supabaseAdmin
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { error: 'Erro de configuração do servidor: Chaves do banco ausentes.' },
+        { status: 500 }
+      );
+    }
+
+    // Instanciar DENTRO da função, não fora
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data, error } = await supabase
       .from('profiles')
       .select('email')
       .eq('username', username.toLowerCase().trim().replace('@', ''))
