@@ -79,7 +79,7 @@ export default function AnalyticsEvolutionPage() {
       {/* SEÇÃO CARDIO EXCLUSIVA */}
       <section className="bg-[#0F0F0F] border border-[#222225] rounded-2xl p-5 space-y-6">
         <div className="flex items-center gap-2 border-b border-[#222225] pb-3">
-          <Timer2 className="w-5 h-5 text-[#22D3EE]" />
+          <Timer className="w-5 h-5 text-[#22D3EE]" />
           <h2 className="text-base font-black text-white uppercase tracking-wider">Métricas de Cardio</h2>
         </div>
 

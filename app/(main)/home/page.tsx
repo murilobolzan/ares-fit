@@ -82,7 +82,7 @@ export default function HomeDashboard() {
         <div className="bg-[#0F0F0F] border border-[#222225] rounded-2xl p-5 flex items-center justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">
-              <Timer2 className="w-4 h-4 text-[#22D3EE]" />
+              <Timer className="w-4 h-4 text-[#22D3EE]" />
               Cardio Semanal
             </div>
             <div>

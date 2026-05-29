@@ -164,7 +164,7 @@ export default function ActiveWorkoutPage() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-black" style={{ color: isCardio ? '#22D3EE' : '#FFE600' }}>
-                    {isCardio ? <Timer2 className="w-5 h-5" /> : <Dumbbell className="w-5 h-5" />}
+                    {isCardio ? <Timer className="w-5 h-5" /> : <Dumbbell className="w-5 h-5" />}
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-white">{ex.base?.name}</h2>

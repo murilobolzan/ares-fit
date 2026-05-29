@@ -112,7 +112,7 @@ export default function ExerciseLibraryPage() {
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-black rounded-xl" style={{ color: isCardio ? '#22D3EE' : '#FFE600' }}>
-                    {isCardio ? <Timer2 className="w-5 h-5" /> : <Dumbbell className="w-5 h-5" />}
+                    {isCardio ? <Timer className="w-5 h-5" /> : <Dumbbell className="w-5 h-5" />}
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white">{ex.name}</h3>
