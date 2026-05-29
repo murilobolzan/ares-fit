@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { Timer, Check, Dumbbell, Trophy, Flame, TrendingUp, X } from 'lucide-react';
+import { Timer, Check, Dumbbell, Trophy, Flame, X, Star, Share2 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -12,10 +12,16 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export default function ActiveWorkoutPage() {
   const router = useRouter();
   const { sessionId } = useParams();
+  
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
-  const [showFinishModal, setShowFinishModal] = useState(false);
   const [inputs, setInputs] = useState<Record<string, { duration?: string; distance?: string; weight?: string; reps?: string }>>({});
+  
+  // Estados do Modal de Finalização
+  const [showFinishModal, setShowFinishModal] = useState(false);
+  const [shareToFeed, setShareToFeed] = useState(true);
+  const [rating, setRating] = useState(10);
+  const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
     async function loadWorkoutSession() {
@@ -91,7 +97,7 @@ export default function ActiveWorkoutPage() {
       }
     }
 
-    // Recarregar dados locais simplificado
+    // Recarregar silencioso
     const { data } = await supabase
       .from('workout_sessions')
       .select('*, exercises:workout_exercises(*, base:base_exercises(*), sets:workout_sets(*))')
@@ -103,12 +109,13 @@ export default function ActiveWorkoutPage() {
   if (loading) return <div className="min-h-screen bg-black text-white p-6">Carregando sessão...</div>;
   if (!session) return <div className="min-h-screen bg-black text-white p-6">Sessão não encontrada.</div>;
 
-  // Cálculos de métricas agregadas
+  // Agregação de Métricas
   let totalVolumeKg = 0;
   let totalCardioMinutes = 0;
   let totalCardioDistance = 0;
   let totalCalories = 0;
   let hasCardio = false;
+  let completedSetsCount = 0;
 
   session.exercises.forEach((ex: any) => {
     const isCardio = ex.base?.exercise_type === 'cardio' || ex.base?.muscle_group === 'Cardio';
@@ -116,6 +123,7 @@ export default function ActiveWorkoutPage() {
 
     ex.sets.forEach((set: any) => {
       if (set.completed) {
+        completedSetsCount++;
         if (isCardio) {
           totalCardioMinutes += Number(set.duration_minutes || 0);
           totalCardioDistance += Number(set.distance_km || 0);
@@ -129,7 +137,8 @@ export default function ActiveWorkoutPage() {
 
   return (
     <div className="min-h-screen bg-black text-white p-4 font-sans selection:bg-[#FFE600]/30">
-      {/* Header Treino Ativo */}
+      
+      {/* HEADER DO TREINO */}
       <header className="border-b border-[#222225] bg-[#0F0F0F] -mx-4 -mt-4 p-4 sticky top-0 z-40">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
@@ -139,7 +148,7 @@ export default function ActiveWorkoutPage() {
               {hasCardio && (
                 <>
                   <span className="text-[#222225] mx-2">·</span>
-                  Cardio Total: <span className="text-[#22D3EE] font-bold">{totalCardioMinutes}min</span>
+                  Cardio: <span className="text-[#22D3EE] font-bold">{totalCardioMinutes}min</span>
                 </>
               )}
             </p>
@@ -149,18 +158,17 @@ export default function ActiveWorkoutPage() {
             className="h-10 px-6 font-bold bg-[#FFE600] text-black hover:opacity-90 active:scale-95 transition-all text-sm"
             style={{ borderRadius: '100px' }}
           >
-            Finalizar Treino
+            Finalizar
           </button>
         </div>
       </header>
 
-      {/* Lista de Exercícios */}
+      {/* LISTA DE EXERCÍCIOS E SÉRIES */}
       <main className="max-w-4xl mx-auto py-6 space-y-4">
         {session.exercises.map((ex: any) => {
           const isCardio = ex.base?.exercise_type === 'cardio' || ex.base?.muscle_group === 'Cardio';
           return (
             <div key={ex.id} className="bg-[#0F0F0F] border border-[#222225] rounded-2xl overflow-hidden p-4">
-              {/* Header Exercício */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-black" style={{ color: isCardio ? '#22D3EE' : '#FFE600' }}>
@@ -178,7 +186,6 @@ export default function ActiveWorkoutPage() {
                 )}
               </div>
 
-              {/* Sub-headers das colunas */}
               <div className="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase tracking-wider text-[#A1A1AA] px-2 mb-2">
                 <div className="col-span-2 text-center">Série</div>
                 {isCardio ? (
@@ -195,7 +202,6 @@ export default function ActiveWorkoutPage() {
                 <div className="col-span-2 text-center">Status</div>
               </div>
 
-              {/* Séries do Exercício */}
               <div className="space-y-2">
                 {ex.sets.sort((a: any, b: any) => a.set_number - b.set_number).map((set: any, index: number) => {
                   const setInput = inputs[set.id] || {};
@@ -211,15 +217,12 @@ export default function ActiveWorkoutPage() {
                         set.completed ? 'bg-black/40 opacity-70' : 'bg-black/20'
                       }`}
                     >
-                      {/* Número Série */}
                       <div className="col-span-2 text-center text-sm font-black text-[#A1A1AA]">
                         {index + 1}
                       </div>
 
-                      {/* Inputs Condicionais (Cardio vs Musculação) */}
                       {isCardio ? (
                         <>
-                          {/* Duração Cardio */}
                           <div className="col-span-4 relative flex items-center">
                             <input
                               type="text"
@@ -232,8 +235,6 @@ export default function ActiveWorkoutPage() {
                             />
                             <span className="absolute right-3 text-xs font-bold text-[#A1A1AA] pointer-events-none">min</span>
                           </div>
-
-                          {/* Distância Cardio */}
                           <div className="col-span-4 relative flex items-center">
                             <input
                               type="text"
@@ -249,7 +250,6 @@ export default function ActiveWorkoutPage() {
                         </>
                       ) : (
                         <>
-                          {/* Carga Musculação */}
                           <div className="col-span-4 relative flex items-center">
                             <input
                               type="text"
@@ -261,8 +261,6 @@ export default function ActiveWorkoutPage() {
                               className="w-full bg-[#1A1A1A] text-center text-lg font-black h-12 text-white border border-transparent focus:border-[#FFE600]/50 outline-none rounded-xl"
                             />
                           </div>
-
-                          {/* Repetições Musculação */}
                           <div className="col-span-4 relative flex items-center">
                             <input
                               type="text"
@@ -277,7 +275,6 @@ export default function ActiveWorkoutPage() {
                         </>
                       )}
 
-                      {/* Botão de Check */}
                       <div className="col-span-2 flex justify-center">
                         <button
                           onClick={() => toggleSetComplete(set.id, isCardio)}
@@ -293,7 +290,6 @@ export default function ActiveWorkoutPage() {
                         </button>
                       </div>
 
-                      {/* Métricas Dinâmicas Inline para Cardio */}
                       {isCardio && durationNum > 0 && (
                         <div className="col-span-12 flex items-center gap-4 px-2 mt-1 border-t border-[#1A1A1A] pt-1.5 text-[11px]">
                           {calculatedPace > 0 && (
@@ -302,7 +298,7 @@ export default function ActiveWorkoutPage() {
                             </span>
                           )}
                           <span className="text-[#A1A1AA] font-medium">
-                            Calorias estimadas: <span className="font-bold text-white">~{estimatedKcal} kcal</span>
+                            Kcal estimadas: <span className="font-bold text-white">~{estimatedKcal} kcal</span>
                           </span>
                         </div>
                       )}
@@ -315,13 +311,14 @@ export default function ActiveWorkoutPage() {
         })}
       </main>
 
-      {/* Modal Resumo Finalização */}
+      {/* MODAL DE FINALIZAÇÃO INTEGRADO SOCIAL/DESAFIOS */}
       {showFinishModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0F0F0F] border border-[#222225] rounded-2xl w-full max-w-md p-6 relative">
+          <div className="bg-[#0F0F0F] border border-[#222225] rounded-2xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => setShowFinishModal(false)}
               className="absolute right-4 top-4 text-[#A1A1AA] hover:text-white"
+              disabled={finishing}
             >
               <X className="w-5 h-5" />
             </button>
@@ -351,7 +348,7 @@ export default function ActiveWorkoutPage() {
                   )}
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-[#A1A1AA] flex items-center gap-1">
-                      <Flame className="w-4 h-4 text-orange-500 fill-orange-500" /> Calorias Estimadas:
+                      <Flame className="w-4 h-4 text-orange-500 fill-orange-500" /> Calorias:
                     </span>
                     <span className="text-white font-black">{totalCalories} kcal</span>
                   </div>
@@ -359,15 +356,104 @@ export default function ActiveWorkoutPage() {
               )}
             </div>
 
+            {/* Avaliação do Treino */}
+            <div className="mb-5">
+              <p className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider mb-2">Nota do Treino</p>
+              <div className="flex gap-2">
+                {[2, 4, 6, 8, 10].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setRating(val)}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold border transition-all flex items-center justify-center gap-1 ${
+                      rating >= val ? 'bg-[#FFE600]/10 border-[#FFE600] text-[#FFE600]' : 'bg-black border-[#222225] text-[#555558]'
+                    }`}
+                  >
+                    {val/2} <Star className={`w-3 h-3 ${rating >= val ? 'fill-[#FFE600]' : ''}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Toggle Social */}
+            <div className="bg-black border border-[#222225] p-4 rounded-xl flex items-center justify-between mb-6 cursor-pointer" onClick={() => setShareToFeed(!shareToFeed)}>
+              <div className="flex items-center gap-3">
+                <div className="bg-[#FFE600]/10 p-2 rounded-lg text-[#FFE600]">
+                  <Share2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Compartilhar no Feed</p>
+                  <p className="text-[10px] text-[#A1A1AA]">Inspirar a comunidade com seu resultado</p>
+                </div>
+              </div>
+              <div className={`w-11 h-6 rounded-full transition-colors relative ${shareToFeed ? 'bg-[#FFE600]' : 'bg-[#222225]'}`}>
+                <div className={`absolute top-1 w-4 h-4 bg-black rounded-full transition-all ${shareToFeed ? 'left-6' : 'left-1'}`} />
+              </div>
+            </div>
+
             <button
               onClick={async () => {
-                await supabase.from('workout_sessions').update({ completed: true, ended_at: new Date().toISOString() }).eq('id', sessionId);
+                setFinishing(true);
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+
+                // 1. Salvar status da sessão
+                await supabase.from('workout_sessions').update({ 
+                  completed: true, 
+                  ended_at: new Date().toISOString(),
+                  rating: rating
+                }).eq('id', sessionId);
+
+                // 2. Postar no feed se toggle ativado
+                if (shareToFeed) {
+                  const postContent = `Finalizei o treino ${session.name || 'do dia'}! 💪\nVolume: ${totalVolumeKg}kg | Cardio: ${totalCardioMinutes}min | Nota: ${rating/2}/5`;
+                  await supabase.from('social_posts').insert({
+                    user_id: user.id,
+                    session_id: sessionId,
+                    content: postContent,
+                    post_type: 'workout',
+                    is_public: true
+                  });
+                }
+
+                // 3. Progresso automático em Desafios
+                const { data: participations } = await supabase
+                  .from('challenge_participants')
+                  .select('*, challenges(*)')
+                  .eq('user_id', user.id)
+                  .eq('completed', false);
+
+                if (participations) {
+                  for (const part of participations) {
+                    if (part.challenges?.is_active) {
+                      let addValue = 0;
+                      switch (part.challenges.challenge_type) {
+                        case 'workouts': addValue = 1; break;
+                        case 'volume': addValue = totalVolumeKg; break;
+                        case 'cardio_minutes': addValue = totalCardioMinutes; break;
+                        case 'cardio_distance': addValue = totalCardioDistance; break;
+                      }
+
+                      if (addValue > 0) {
+                        const newValue = Number(part.current_value) + addValue;
+                        const isCompleted = newValue >= part.challenges.target_value;
+                        
+                        await supabase.from('challenge_participants').update({
+                          current_value: newValue,
+                          completed: isCompleted,
+                          completed_at: isCompleted ? new Date().toISOString() : null
+                        }).eq('id', part.id);
+                      }
+                    }
+                  }
+                }
+
                 router.push('/home');
               }}
-              className="w-full h-12 bg-[#FFE600] text-black font-black hover:opacity-90 transition-all text-sm"
+              disabled={finishing}
+              className="w-full h-12 bg-[#FFE600] text-black font-black hover:opacity-90 transition-all text-sm disabled:opacity-50 flex justify-center items-center"
               style={{ borderRadius: '100px' }}
             >
-              Confirmar e Salvar Treino
+              {finishing ? 'Processando dados...' : 'Confirmar e Salvar Treino'}
             </button>
           </div>
         </div>

@@ -1,21 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { Timer, Activity, Zap, ShieldCheck } from 'lucide-react';
+import { Timer, Activity, Zap, ShieldCheck, Users, Trophy } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function HomeDashboard() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [weeklyCardioMinutes, setWeeklyCardioMinutes] = useState(0);
   const [cardioThresholdHours, setCardioThresholdHours] = useState(0);
 
   useEffect(() => {
     async function loadDashboardStats() {
-      // Data de 7 dias atrás
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -33,6 +34,7 @@ export default function HomeDashboard() {
         let lastSessionDuration = 0;
         let lastSessionIsHiit = false;
         let lastCompletedAt: Date | undefined = undefined;
+
         data.forEach((set: any) => {
           const isCardio = set.workout_exercises?.base_exercises?.exercise_type === 'cardio';
           if (isCardio) {
@@ -51,11 +53,11 @@ export default function HomeDashboard() {
 
         setWeeklyCardioMinutes(totalMinutes);
 
-        // Lógica de recuperação baseada nas regras de limite fornecidas
         if (lastCompletedAt) {
           const now = new Date();
-          const diffHours = Math.abs(now.getTime() - (lastCompletedAt as Date).getTime()) / (1000 * 60 * 60);          
-          let requiredRecovery = 12; // Cardio moderado default
+          const diffHours = Math.abs(now.getTime() - (lastCompletedAt as Date).getTime()) / (1000 * 60 * 60);
+          
+          let requiredRecovery = 12; // Cardio moderado
           if (lastSessionIsHiit || lastSessionDuration > 45) {
             requiredRecovery = 24; // Cardio intenso
           }
@@ -76,7 +78,6 @@ export default function HomeDashboard() {
         <p className="text-xs text-[#A1A1AA] mt-0.5">Métricas semanais consolidadas e recuperação</p>
       </div>
 
-      {/* Widgets do Resumo Semanal */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Card Cardio Semanal */}
         <div className="bg-[#0F0F0F] border border-[#222225] rounded-2xl p-5 flex items-center justify-between">
@@ -101,7 +102,7 @@ export default function HomeDashboard() {
           </div>
         </div>
 
-        {/* Card Mapa de Recuperação Integrada */}
+        {/* Card Mapa de Recuperação */}
         <div className="bg-[#0F0F0F] border border-[#222225] rounded-2xl p-5 flex items-center justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">
@@ -119,6 +120,39 @@ export default function HomeDashboard() {
               O tempo é ajustado dinamicamente com base nas sessões moderadas ou treinos intensos e HIIT.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Seção Social & Gamificação adicionadas */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+        {/* Banner Social */}
+        <div 
+          onClick={() => router.push('/social')}
+          className="bg-gradient-to-br from-[#0F0F0F] to-black border border-[#222225] p-5 rounded-2xl cursor-pointer hover:border-[#555558] transition-all group"
+        >
+          <div className="flex justify-between items-start mb-3">
+            <div className="p-2.5 bg-[#222225] rounded-xl text-white group-hover:bg-white group-hover:text-black transition-colors">
+              <Users className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-black tracking-widest text-[#A1A1AA] uppercase">Comunidade</span>
+          </div>
+          <h3 className="text-base font-black text-white">Feed AresFit</h3>
+          <p className="text-xs text-[#555558] mt-1">Veja os RPs batidos e treinos da galera agora mesmo →</p>
+        </div>
+
+        {/* Banner Desafios */}
+        <div 
+          onClick={() => router.push('/desafios')}
+          className="bg-gradient-to-br from-[#0F0F0F] to-[#1a1700] border border-[#222225] p-5 rounded-2xl cursor-pointer hover:border-[#FFE600]/50 transition-all group"
+        >
+          <div className="flex justify-between items-start mb-3">
+            <div className="p-2.5 bg-[#FFE600]/10 rounded-xl text-[#FFE600] group-hover:bg-[#FFE600] group-hover:text-black transition-colors">
+              <Trophy className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-black tracking-widest text-[#FFE600] uppercase animate-pulse">Ativos</span>
+          </div>
+          <h3 className="text-base font-black text-white">Desafios da Semana</h3>
+          <p className="text-xs text-[#A1A1AA] mt-1">Acumule volume e ganhe conquistas. Você dá conta? →</p>
         </div>
       </section>
     </div>

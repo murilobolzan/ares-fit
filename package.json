@@ -11,6 +11,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.43.0",
+    "date-fns": "^4.3.0",
     "html2canvas": "^1.4.1",
     "lucide-react": "latest",
     "mercadopago": "^2.0.9",
