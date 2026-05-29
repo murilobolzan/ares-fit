@@ -1,5 +1,8 @@
 import React from 'react';
-import { BottomNav } from '../../components/layout/BottomNav';
+import BottomNav from '@/components/layout/BottomNav';
+import { ToastProvider } from '@/components/ui/Toast';
+import InstallPrompt from '@/components/ui/InstallPrompt';
+import ConsentBanner from '@/components/layout/ConsentBanner';
 
 export default function MainLayout({
   children,
@@ -7,16 +10,24 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="w-full min-h-screen bg-zinc-950 flex justify-center items-stretch">
-      {/* Container Centralizado para simular dispositivo Mobile (Max 430px) */}
-      <div className="w-full max-w-[430px] bg-background border-x border-border/40 min-h-screen flex flex-col relative pb-[calc(64px+env(safe-area-inset-bottom)+16px)]">
-        <div className="flex-1 w-full flex flex-col overflow-y-auto hide-scroll">
-          {children}
-        </div>
+    <ToastProvider>
+      <div className="min-h-screen bg-[#000000] relative">
         
-        {/* Menu Inferior Fixo */}
+        {/* Container Centralizado Mobile-First */}
+        <main className="max-w-sm mx-auto min-h-screen pb-[calc(64px+env(safe-area-inset-bottom)+16px)] relative flex flex-col">
+          {children}
+        </main>
+        
+        {/* Banner de Cookies e Consentimento LGPD */}
+        <ConsentBanner />
+
+        {/* Prompt PWA */}
+        <InstallPrompt />
+
+        {/* Barra de Navegação Inferior Global */}
         <BottomNav />
+        
       </div>
-    </div>
+    </ToastProvider>
   );
 }

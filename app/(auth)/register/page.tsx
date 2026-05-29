@@ -1,230 +1,159 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Dumbbell, Users, Minus, Plus, Upload, Loader2, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Loader2, Gift } from 'lucide-react';
+import Link from 'next/link';
 import { useToast } from '@/lib/hooks/useToast';
-import { AccountType } from '@/lib/theme';
 
-const GOALS = ['Ganhar Massa', 'Perder Gordura', 'Ganhar Força', 'Definição', 'Saúde'];
-
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-
-  // Form Data
-  const [name, setName] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [accountType, setAccountType] = useState<AccountType>('student');
-  
-  // Student Data
-  const [goal, setGoal] = useState('Saúde');
-  const [frequency, setFrequency] = useState(3);
-  
-  // Trainer Data
+  const [accountType, setAccountType] = useState<'student' | 'pending_trainer'>('student');
   const [cref, setCref] = useState('');
-  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+  
+  // Growth State
+  const [referralCode, setReferralCode] = useState('');
+  const [legalAccepted, setLegalAccepted] = useState(false);
 
-  const handleNextStep = () => {
-    if (!name || !email || !password || !confirmPassword) {
-      showToast('Preencha todos os campos.', 'warning');
-      return;
+  // Capturar parâmetro "?ref=CODIGO" da URL automaticamente
+  useEffect(() => {
+    const refCode = searchParams.get('ref');
+    if (refCode) {
+      setReferralCode(refCode.toUpperCase());
+      showToast('Código de indicação detectado! Conclua o cadastro para ganhar seu bônus.', 'info');
     }
-    if (password !== confirmPassword) {
-      showToast('As senhas não coincidem.', 'error');
-      return;
-    }
-    setStep(2);
-  };
+  }, [searchParams, showToast]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setDocumentUrl(URL.createObjectURL(file));
-    }
-  };
-
-  const handleRegister = async () => {
-    if (accountType === 'trainer' && (!cref || !documentUrl)) {
-      showToast('Preencha o CREF e envie uma foto do documento.', 'warning');
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!legalAccepted) return;
+    if (!fullName || !username || !email || !password) {
+      showToast('Preencha os campos obrigatórios.', 'warning');
       return;
     }
 
     setLoading(true);
+    try {
+      const cleanUsername = username.trim().toLowerCase().replace('@', '');
+      
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password
+      });
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
+      if (authError || !authData.user) throw new Error(authError?.message || 'Erro de cadastro.');
+
+      // Criar Perfil do usuário
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: fullName.trim(),
+          username: cleanUsername,
+          account_type: accountType,
+          cref: accountType === 'pending_trainer' ? cref.trim() : null,
+          cref_status: accountType === 'pending_trainer' ? 'pending' : null,
+          lgpd_accepted: true,
+          lgpd_accepted_at: new Date().toISOString()
+        })
+        .eq('id', authData.user.id);
+
+      if (profileError) throw profileError;
+
+      // Executar validação de indicação se houver código preenchido
+      if (referralCode.trim()) {
+        try {
+          const res = await fetch('/api/referral/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ referralCode: referralCode.trim().toUpperCase(), newUserId: authData.user.id })
+          });
+          const refResult = await res.json();
+          if (res.ok && refResult.success) {
+            showToast('🎁 Indicação ativada! Você ganhou 15 dias de PRO grátis!', 'success');
+          }
+        } catch (err) {
+          console.error('Falha de rede ao validar código, seguindo fluxo comum...', err);
         }
       }
-    });
 
-    if (error) {
-      showToast(error.message, 'error');
-      setLoading(false);
-      return;
-    }
-
-    if (data.user) {
-      // Atualiza os dados extras no profile recém criado via trigger
-      const profileUpdate: any = { account_type: accountType === 'trainer' ? 'pending_trainer' : 'student' };
+      showToast('Cadastro efetuado com sucesso!', 'success');
       
-      if (accountType === 'student') {
-        profileUpdate.goal = goal;
-        profileUpdate.training_frequency = frequency;
+      if (accountType === 'pending_trainer') {
+        router.push('/pending-approval');
       } else {
-        profileUpdate.cref = cref;
-        profileUpdate.cref_status = 'pending';
+        router.push('/home');
       }
+      router.refresh();
 
-      await supabase.from('profiles').update(profileUpdate).eq('id', data.user.id);
-    }
-
-    if (accountType === 'student') {
-      router.push('/home');
-    } else {
-      router.push('/pending-approval');
+    } catch (err: any) {
+      showToast(err.message || 'Falha ao registrar conta.', 'error');
+      setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-background text-primary px-screenPadding pt-10 pb-safe relative flex flex-col">
-      <ToastComponent />
-      
-      <div className="max-w-md w-full mx-auto flex-1 flex flex-col">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          {step === 2 && (
-            <button onClick={() => setStep(1)} className="p-2 -ml-2 bg-surface-2 rounded-full text-primary hover:bg-surface-3 transition-colors">
-              <ArrowLeft size={20} />
-            </button>
-          )}
-          <div>
-            <h1 className="text-2xl font-bold">Criar conta</h1>
-            <p className="text-secondary text-sm">Etapa {step} de 2</p>
-          </div>
+    <div className="min-h-screen bg-black text-white p-6 flex flex-col justify-center max-w-sm mx-auto animate-fade-in">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-black uppercase tracking-tighter">Ares<span className="text-[#FFE600]">Fit</span></h1>
+        <p className="text-xs text-[#A1A1AA] uppercase font-bold tracking-widest mt-1">Crie sua conta de performance</p>
+      </div>
+
+      <form onSubmit={handleRegister} className="space-y-4">
+        <input type="text" placeholder="Nome Completo" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none" required />
+        <input type="text" placeholder="Nome de Usuário (@username)" value={username} onChange={e => setUsername(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none" required />
+        <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none" required />
+        <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none" required />
+
+        {/* Input Opcional de Referral (Growth Hacking) */}
+        <div className="relative">
+          <Gift size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#555558]" />
+          <input 
+            type="text" 
+            placeholder="Código de um amigo (Opcional)" 
+            value={referralCode} 
+            onChange={e => setReferralCode(e.target.value.toUpperCase())} 
+            className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl pl-11 pr-4 text-sm text-[#FFE600] font-black uppercase placeholder-[#555558] focus:border-[#FFE600] outline-none" 
+          />
         </div>
 
-        {/* STEP 1: Basic Info */}
-        {step === 1 && (
-          <div className="flex flex-col gap-5 animate-slide-up">
-            <input type="text" placeholder="Nome completo" value={name} onChange={(e) => setName(e.target.value)} className="w-full h-14 bg-surface-2 border border-border rounded-xl px-4 text-primary placeholder:text-secondary focus:outline-none focus:border-brand transition-colors" />
-            <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full h-14 bg-surface-2 border border-border rounded-xl px-4 text-primary placeholder:text-secondary focus:outline-none focus:border-brand transition-colors" />
-            <input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full h-14 bg-surface-2 border border-border rounded-xl px-4 text-primary placeholder:text-secondary focus:outline-none focus:border-brand transition-colors" />
-            <input type="password" placeholder="Confirmar Senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full h-14 bg-surface-2 border border-border rounded-xl px-4 text-primary placeholder:text-secondary focus:outline-none focus:border-brand transition-colors" />
+        <div className="grid grid-cols-2 gap-2 bg-[#0F0F0F] p-1 border border-[#222225] rounded-xl">
+          <button type="button" onClick={() => setAccountType('student')} className={`py-2 text-xs font-black uppercase rounded-lg ${accountType === 'student' ? 'bg-[#FFE600] text-black' : 'text-[#A1A1AA]'}`}>Atleta</button>
+          <button type="button" onClick={() => setAccountType('pending_trainer')} className={`py-2 text-xs font-black uppercase rounded-lg ${accountType === 'pending_trainer' ? 'bg-[#FFE600] text-black' : 'text-[#A1A1AA]'}`}>Personal</button>
+        </div>
 
-            <div className="mt-4">
-              <label className="text-sm font-medium mb-3 block">Qual o seu perfil?</label>
-              <div className="flex gap-4">
-                <button
-                  type="button"
-                  onClick={() => setAccountType('student')}
-                  className={`flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-colors ${accountType === 'student' ? 'border-brand bg-brand-soft text-brand' : 'border-border bg-surface text-secondary hover:bg-surface-2'}`}
-                >
-                  <Dumbbell size={32} />
-                  <span className="font-medium text-sm">Sou Aluno</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAccountType('trainer')}
-                  className={`flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-colors ${accountType === 'trainer' ? 'border-brand bg-brand-soft text-brand' : 'border-border bg-surface text-secondary hover:bg-surface-2'}`}
-                >
-                  <Users size={32} />
-                  <span className="font-medium text-sm text-center">Sou Personal</span>
-                </button>
-              </div>
-            </div>
-
-            <button onClick={handleNextStep} className="w-full h-14 bg-brand text-black font-bold rounded-pill mt-6 hover:bg-brand-hover transition-colors">
-              Continuar
-            </button>
-          </div>
+        {accountType === 'pending_trainer' && (
+          <input type="text" placeholder="Registro CREF" value={cref} onChange={e => setCref(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none animate-slide-up" required />
         )}
 
-        {/* STEP 2A: Student */}
-        {step === 2 && accountType === 'student' && (
-          <div className="flex flex-col gap-8 animate-fade-in">
-            <div>
-              <label className="text-sm font-medium mb-3 block">Qual o seu principal objetivo?</label>
-              <div className="flex gap-3 overflow-x-auto hide-scroll pb-2">
-                {GOALS.map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => setGoal(g)}
-                    className={`whitespace-nowrap px-6 py-3 rounded-pill border-2 transition-colors text-sm font-medium ${goal === g ? 'border-brand bg-brand-soft text-brand' : 'border-border bg-surface text-secondary hover:bg-surface-2'}`}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
-            </div>
+        <label className="flex items-start gap-3 bg-[#0F0F0F] border border-[#222225] p-3 rounded-xl cursor-pointer">
+          <input type="checkbox" checked={legalAccepted} onChange={e => setLegalAccepted(e.target.checked)} className="w-5 h-5 rounded accent-[#FFE600] shrink-0 mt-0.5" />
+          <span className="text-[11px] text-[#A1A1AA] leading-relaxed font-semibold">
+            Li e estou ciente com os <Link href="/termos" target="_blank" className="text-[#FFE600] underline font-bold">Termos de Uso</Link> e a <Link href="/privacidade" target="_blank" className="text-[#FFE600] underline font-bold">Política de Privacidade</Link>.
+          </span>
+        </label>
 
-            <div>
-              <label className="text-sm font-medium mb-3 block text-center">Frequência de treino semanal</label>
-              <div className="flex items-center justify-center gap-6">
-                <button onClick={() => setFrequency(Math.max(2, frequency - 1))} className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center text-primary hover:bg-surface-3 transition-colors active:scale-95">
-                  <Minus size={20} />
-                </button>
-                <div className="text-4xl font-black w-12 text-center">{frequency}</div>
-                <button onClick={() => setFrequency(Math.min(6, frequency + 1))} className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center text-primary hover:bg-surface-3 transition-colors active:scale-95">
-                  <Plus size={20} />
-                </button>
-              </div>
-              <p className="text-center text-secondary text-sm mt-3">dias por semana</p>
-            </div>
+        <button type="submit" disabled={!legalAccepted || loading} className="w-full h-14 bg-[#FFE600] text-black font-black uppercase tracking-widest text-xs rounded-full flex items-center justify-center disabled:opacity-20 transition-all active:scale-95 mt-2">
+          {loading ? <Loader2 className="animate-spin" size={20} /> : 'Criar Conta'}
+        </button>
+      </form>
+    </div>
+  );
+}
 
-            <div className="mt-auto pt-8">
-              <button onClick={handleRegister} disabled={loading} className="w-full h-14 bg-brand text-black font-bold rounded-pill flex items-center justify-center hover:bg-brand-hover transition-colors disabled:opacity-50">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Criar conta'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2B: Trainer */}
-        {step === 2 && accountType === 'trainer' && (
-          <div className="flex flex-col gap-6 animate-fade-in">
-            <input type="text" placeholder="Número do CREF (ex: 012345-G/SP)" value={cref} onChange={(e) => setCref(e.target.value)} className="w-full h-14 bg-surface-2 border border-border rounded-xl px-4 text-primary placeholder:text-secondary focus:outline-none focus:border-brand transition-colors uppercase" />
-
-            <div>
-              <label className="text-sm font-medium mb-3 block">Foto do documento (CREF)</label>
-              <label className="border-2 border-dashed border-border rounded-2xl h-40 flex flex-col items-center justify-center gap-3 bg-surface cursor-pointer hover:bg-surface-2 transition-colors relative overflow-hidden">
-                {documentUrl ? (
-                  <img src={documentUrl} alt="Documento" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-                ) : (
-                  <>
-                    <Upload size={32} className="text-secondary" />
-                    <span className="text-sm text-secondary font-medium">Toque para anexar</span>
-                  </>
-                )}
-                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-              </label>
-            </div>
-
-            <div className="bg-surface-2 p-4 rounded-xl border border-border mt-4">
-              <p className="text-sm text-secondary leading-relaxed">
-                <strong className="text-primary">Atenção:</strong> Seu cadastro será analisado por nossa equipe em até 24h para garantir a segurança da plataforma. Você receberá um e-mail quando for aprovado.
-              </p>
-            </div>
-
-            <div className="mt-auto pt-8">
-              <button onClick={handleRegister} disabled={loading} className="w-full h-14 bg-brand text-black font-bold rounded-pill flex items-center justify-center hover:bg-brand-hover transition-colors disabled:opacity-50">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Enviar para análise'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </main>
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><Loader2 className="animate-spin text-[#FFE600]" size={32} /></div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }

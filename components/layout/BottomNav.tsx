@@ -1,113 +1,90 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Dumbbell, 
-  TrendingUp, 
-  User, 
-  Users, 
-  UserCheck 
-} from 'lucide-react';
+import { LayoutDashboard, Dumbbell, TrendingUp, User, Users, UserCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
-type TabItem = {
-  label: string;
+interface NavItem {
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
+  label: string;
+  icon: React.ElementType;
+}
 
-export function BottomNav() {
+const baseNavItems: NavItem[] = [
+  { href: '/home', label: 'Home', icon: LayoutDashboard },
+  { href: '/fichas', label: 'Fichas', icon: Dumbbell },
+  { href: '/evolucao', label: 'Evolução', icon: TrendingUp },
+  { href: '/perfil', label: 'Perfil', icon: User },
+];
+
+export default function BottomNav() {
   const pathname = usePathname();
-  const supabase = createClient();
-  const [extraTab, setExtraTab] = useState<TabItem | null>(null);
-
-  // 4 Abas Padrão (Sempre Visíveis)
-  const defaultTabs: TabItem[] = [
-    { label: 'Home', href: '/home', icon: LayoutDashboard },
-    { label: 'Fichas', href: '/fichas', icon: Dumbbell },
-    { label: 'Evolução', href: '/evolucao', icon: TrendingUp },
-    { label: 'Perfil', href: '/perfil', icon: User },
-  ];
+  const [accountType, setAccountType] = useState<string>('student');
 
   useEffect(() => {
-    async function checkAccountType() {
+    const getProfile = async () => {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
+      
       if (!user) return;
-
-      // Busca dados do perfil
-      const { data: profile } = await supabase
+      
+      const { data } = await supabase
         .from('profiles')
         .select('account_type')
         .eq('id', user.id)
         .single();
+        
+      if (data) setAccountType(data.account_type);
+    };
+    
+    getProfile();
+  }, []);
 
-      if (!profile) return;
-
-      if (profile.account_type === 'trainer') {
-        // Personal Aprovado -> Aba Alunos
-        setExtraTab({ label: 'Alunos', href: '/painel-pt', icon: Users });
-      } else if (profile.account_type === 'student') {
-        // Aluno -> Verifica se tem algum vínculo aceito/ativo com personal
-        const { data: relationship } = await supabase
-          .from('trainer_students')
-          .select('status')
-          .eq('student_id', user.id)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (relationship) {
-          setExtraTab({ label: 'Meu PT', href: '/painel-aluno', icon: UserCheck });
-        }
-      }
-    }
-
-    checkAccountType();
-  }, [supabase]);
-
-  // Se houver aba extra, injeta dinamicamente na penúltima posição antes de Perfil
-  const renderedTabs = [...defaultTabs];
-  if (extraTab) {
-    renderedTabs.splice(3, 0, extraTab);
-  }
+  const navItems: NavItem[] = [
+    ...baseNavItems,
+    ...(accountType === 'trainer'
+      ? [{ href: '/painel-pt', label: 'Alunos', icon: Users }]
+      : accountType === 'student'
+      ? [{ href: '/painel-aluno', label: 'Meu PT', icon: UserCheck }]
+      : [])
+  ];
 
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] h-[calc(64px+env(safe-area-inset-bottom))] border-t border-border backdrop-blur-md bg-black/90 px-4 flex justify-around items-center z-50 select-none pb-[env(safe-area-inset-bottom)]">
-      {renderedTabs.map((tab) => {
-        const Icon = tab.icon;
-        const isActive = pathname.startsWith(tab.href);
-
-        return (
-          <Link 
-            key={tab.href} 
-            href={tab.href}
-            className="flex flex-col items-center justify-center flex-1 h-full relative group transition-transform active:scale-95"
-          >
-            <div className="relative flex flex-col items-center">
-              <Icon 
-                className={`w-6 h-6 transition-colors duration-200 ${
-                  isActive ? 'text-brand' : 'text-muted group-hover:text-secondary'
-                }`} 
+    <nav 
+      className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-[#222225] select-none"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
+      <div className="max-w-sm mx-auto flex items-center justify-around h-16 px-2">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href || (item.href !== '/home' && pathname.startsWith(item.href));
+          
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              prefetch={true}
+              className="flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-transform active:scale-95 touch-manipulation"
+            >
+              <Icon
+                size={22}
+                className={isActive ? 'text-[#FFE600]' : 'text-[#555558] transition-colors duration-200'}
+                strokeWidth={isActive ? 2.5 : 1.5}
               />
-              
-              <span 
-                className={`text-[9px] uppercase font-bold tracking-widest mt-1 transition-colors duration-200 ${
-                  isActive ? 'text-brand' : 'text-muted group-hover:text-secondary'
-                }`}
-              >
-                {tab.label}
+              <span className={`text-[9px] uppercase tracking-widest font-bold transition-colors duration-200 ${
+                isActive ? 'text-[#FFE600]' : 'text-[#555558]'
+              }`}>
+                {item.label}
               </span>
-
-              {/* Indicador de Aba Ativa (Dot Circular) */}
               {isActive && (
-                <span className="absolute -bottom-2 w-1 h-1 bg-brand rounded-full animate-fade-in" />
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#FFE600] animate-fade-in" />
               )}
-            </div>
-          </Link>
-        );
-      })}
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }
