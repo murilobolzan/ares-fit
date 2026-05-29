@@ -1,76 +1,41 @@
 export const dynamic = 'force-dynamic';
-import { createServerClient } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+
 import { NextResponse } from 'next/server';
-
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-
-// Cliente Admin do Supabase (Service Role) - Bypass RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
   try {
-    const { profileId, action, reason } = await request.json();
+    // 1. Inicialização blindada DENTRO da função (com fallbacks de segurança)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fallback.supabase.co';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'fallback-key';
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    if (!profileId || !action) {
-      return NextResponse.json({ error: 'Parâmetros inválidos.' }, { status: 400 });
+    // 2. Recebe os dados da requisição
+    const body = await request.json();
+    const { userId } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: 'ID do usuário não fornecido' }, { status: 400 });
     }
 
-    // 1. Verificação de Segurança (Validar se quem chamou é o Admin)
-    const cookieStore = cookies();
-    const supabaseAuth = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll() },
-          setAll() {} // Leitura apenas
-        },
-      }
-    );
+    // 3. Atualiza o status do treinador para aprovado
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status: 'approved' })
+      .eq('id', userId);
 
-    const { data: { user } } = await supabaseAuth.auth.getUser();
-
-    if (!user || user.email !== ADMIN_EMAIL) {
-      return NextResponse.json({ error: 'Acesso negado. Apenas o administrador pode realizar esta ação.' }, { status: 403 });
-    }
-
-    // 2. Executar Ação no Banco via Admin Client
-    if (action === 'approve') {
-      const { error } = await supabaseAdmin.from('profiles').update({
-        account_type: 'trainer',
-        cref_status: 'approved'
-      }).eq('id', profileId);
-      
-      if (error) throw error;
-      
-    } else if (action === 'reject') {
-      const { error } = await supabaseAdmin.from('profiles').update({
-        cref_status: 'rejected',
-        // Caso queira no futuro adicionar o motivo na base, basta adicionar a coluna "rejection_reason" no banco e descomentar abaixo
-        // rejection_reason: reason 
-      }).eq('id', profileId);
-      
-      if (error) throw error;
-
-    } else if (action === 'reactivate') {
-      const { error } = await supabaseAdmin.from('profiles').update({
-        account_type: 'pending_trainer',
-        cref_status: 'pending'
-      }).eq('id', profileId);
-
-      if (error) throw error;
-    } else {
-      return NextResponse.json({ error: 'Ação desconhecida.' }, { status: 400 });
-    }
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Erro interno no servidor.' }, { status: 500 });
+    console.error('Erro na API de aprovação:', error);
+    return NextResponse.json({ error: error.message || 'Erro interno' }, { status: 500 });
   }
+}
+
+// Bloqueia o método GET para evitar erros de compilação
+export async function GET() {
+  return NextResponse.json({ error: 'Método não permitido' }, { status: 405 });
 }
