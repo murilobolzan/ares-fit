@@ -1,52 +1,51 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
-  // Inicializa uma resposta base
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Trava de Segurança: Se as chaves não existirem na Vercel, 
+  // ele não tenta conectar no banco e evita o erro 500 (Crash).
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return response;
+  }
+
   try {
-    // Blinda a criação do cliente com fallbacks para evitar o crash 500
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fallback.supabase.co';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'fallback-key';
-
-    const supabase = createServerClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        cookies: {
-          get(name: string) {
-            return request.cookies.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            request.cookies.set({ name, value, ...options });
-            response.cookies.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            request.cookies.set({ name, value: '', ...options });
-            response.cookies.set({ name, value: '', ...options });
-          },
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
         },
-      }
-    );
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({
+            request,
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    });
 
-    // Opcional: Chama o getUser para atualizar os cookies de sessão se necessário
+    // Atualiza a sessão do usuário
     await supabase.auth.getUser();
 
     return response;
-  } catch (e) {
-    // Se der qualquer erro no Supabase, ao invés de derrubar o site com erro 500,
-    // ele simplesmente deixa o usuário seguir em frente como "deslogado".
-    console.error('Erro no Middleware do Supabase:', e);
+  } catch (error) {
+    // Captura qualquer erro silenciosamente e não quebra a tela
+    console.error('Erro no Middleware:', error);
     return response;
   }
 }
 
-// Protege apenas as rotas necessárias para não pesar o site inteiro
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
