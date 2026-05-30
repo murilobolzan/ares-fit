@@ -5,13 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2, Gift } from 'lucide-react';
 import Link from 'next/link';
-import { useToast } from '@/lib/hooks/useToast';
 
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-  const { showToast } = useToast();
 
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -21,6 +19,10 @@ function RegisterForm() {
   const [accountType, setAccountType] = useState<'student' | 'pending_trainer'>('student');
   const [cref, setCref] = useState('');
   
+  // Status nativos substituindo o Toast
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
   // Growth State
   const [referralCode, setReferralCode] = useState('');
   const [legalAccepted, setLegalAccepted] = useState(false);
@@ -30,15 +32,18 @@ function RegisterForm() {
     const refCode = searchParams.get('ref');
     if (refCode) {
       setReferralCode(refCode.toUpperCase());
-      showToast('Código de indicação detectado! Conclua o cadastro para ganhar seu bônus.', 'info');
+      setSuccessMsg('Código de indicação detectado! Conclua o cadastro para ganhar seu bônus.');
     }
-  }, [searchParams, showToast]);
+  }, [searchParams]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+
     if (!legalAccepted) return;
     if (!fullName || !username || !email || !password) {
-      showToast('Preencha os campos obrigatórios.', 'warning');
+      setError('Preencha todos os campos obrigatórios.');
       return;
     }
 
@@ -79,15 +84,14 @@ function RegisterForm() {
           });
           const refResult = await res.json();
           if (res.ok && refResult.success) {
-            showToast('🎁 Indicação ativada! Você ganhou 15 dias de PRO grátis!', 'success');
+            console.log('Indicação ativada com sucesso.');
           }
         } catch (err) {
           console.error('Falha de rede ao validar código, seguindo fluxo comum...', err);
         }
       }
 
-      showToast('Cadastro efetuado com sucesso!', 'success');
-      
+      // Redirecionar com sucesso
       if (accountType === 'pending_trainer') {
         router.push('/pending-approval');
       } else {
@@ -96,7 +100,7 @@ function RegisterForm() {
       router.refresh();
 
     } catch (err: any) {
-      showToast(err.message || 'Falha ao registrar conta.', 'error');
+      setError(err.message || 'Falha ao registrar conta. Tente novamente.');
       setLoading(false);
     }
   };
@@ -108,11 +112,24 @@ function RegisterForm() {
         <p className="text-xs text-[#A1A1AA] uppercase font-bold tracking-widest mt-1">Crie sua conta de performance</p>
       </div>
 
+      {/* Caixas de Alerta (Sucesso e Erro) */}
+      {error && (
+        <div className="bg-[#FF3B30]/10 border border-[#FF3B30]/30 rounded-xl p-3 mb-4 text-center">
+          <p className="text-[#FF3B30] text-xs font-semibold">{error}</p>
+        </div>
+      )}
+      
+      {successMsg && (
+        <div className="bg-[#22C55E]/10 border border-[#22C55E]/30 rounded-xl p-3 mb-4 text-center">
+          <p className="text-[#22C55E] text-xs font-semibold">{successMsg}</p>
+        </div>
+      )}
+
       <form onSubmit={handleRegister} className="space-y-4">
-        <input type="text" placeholder="Nome Completo" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none" required />
-        <input type="text" placeholder="Nome de Usuário (@username)" value={username} onChange={e => setUsername(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none" required />
-        <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none" required />
-        <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none" required />
+        <input type="text" placeholder="Nome Completo" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none transition-colors" required />
+        <input type="text" placeholder="Nome de Usuário (@username)" value={username} onChange={e => setUsername(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none transition-colors" required />
+        <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none transition-colors" required />
+        <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none transition-colors" required />
 
         {/* Input Opcional de Referral (Growth Hacking) */}
         <div className="relative">
@@ -122,29 +139,36 @@ function RegisterForm() {
             placeholder="Código de um amigo (Opcional)" 
             value={referralCode} 
             onChange={e => setReferralCode(e.target.value.toUpperCase())} 
-            className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl pl-11 pr-4 text-sm text-[#FFE600] font-black uppercase placeholder-[#555558] focus:border-[#FFE600] outline-none" 
+            className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl pl-11 pr-4 text-sm text-[#FFE600] font-black uppercase placeholder-[#555558] focus:border-[#FFE600] outline-none transition-colors" 
           />
         </div>
 
         <div className="grid grid-cols-2 gap-2 bg-[#0F0F0F] p-1 border border-[#222225] rounded-xl">
-          <button type="button" onClick={() => setAccountType('student')} className={`py-2 text-xs font-black uppercase rounded-lg ${accountType === 'student' ? 'bg-[#FFE600] text-black' : 'text-[#A1A1AA]'}`}>Atleta</button>
-          <button type="button" onClick={() => setAccountType('pending_trainer')} className={`py-2 text-xs font-black uppercase rounded-lg ${accountType === 'pending_trainer' ? 'bg-[#FFE600] text-black' : 'text-[#A1A1AA]'}`}>Personal</button>
+          <button type="button" onClick={() => setAccountType('student')} className={`py-2 text-xs font-black uppercase rounded-lg transition-all ${accountType === 'student' ? 'bg-[#FFE600] text-black' : 'text-[#A1A1AA]'}`}>Atleta</button>
+          <button type="button" onClick={() => setAccountType('pending_trainer')} className={`py-2 text-xs font-black uppercase rounded-lg transition-all ${accountType === 'pending_trainer' ? 'bg-[#FFE600] text-black' : 'text-[#A1A1AA]'}`}>Personal</button>
         </div>
 
         {accountType === 'pending_trainer' && (
-          <input type="text" placeholder="Registro CREF" value={cref} onChange={e => setCref(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none animate-slide-up" required />
+          <input type="text" placeholder="Registro CREF" value={cref} onChange={e => setCref(e.target.value)} className="w-full h-12 bg-[#1A1A1A] border border-[#222225] rounded-xl px-4 text-sm text-white focus:border-[#FFE600] outline-none transition-colors animate-slide-up" required />
         )}
 
         <label className="flex items-start gap-3 bg-[#0F0F0F] border border-[#222225] p-3 rounded-xl cursor-pointer">
           <input type="checkbox" checked={legalAccepted} onChange={e => setLegalAccepted(e.target.checked)} className="w-5 h-5 rounded accent-[#FFE600] shrink-0 mt-0.5" />
           <span className="text-[11px] text-[#A1A1AA] leading-relaxed font-semibold">
-            Li e estou ciente com os <Link href="/termos" target="_blank" className="text-[#FFE600] underline font-bold">Termos de Uso</Link> e a <Link href="/privacidade" target="_blank" className="text-[#FFE600] underline font-bold">Política de Privacidade</Link>.
+            Li e concordo com os <Link href="/termos" target="_blank" className="text-[#FFE600] hover:underline font-bold">Termos de Uso</Link> e a <Link href="/privacidade" target="_blank" className="text-[#FFE600] hover:underline font-bold">Política de Privacidade</Link>.
           </span>
         </label>
 
-        <button type="submit" disabled={!legalAccepted || loading} className="w-full h-14 bg-[#FFE600] text-black font-black uppercase tracking-widest text-xs rounded-full flex items-center justify-center disabled:opacity-20 transition-all active:scale-95 mt-2">
+        <button type="submit" disabled={!legalAccepted || loading} className="w-full h-14 bg-[#FFE600] text-black font-black uppercase tracking-widest text-xs rounded-full flex items-center justify-center disabled:opacity-50 transition-all active:scale-95 mt-2">
           {loading ? <Loader2 className="animate-spin" size={20} /> : 'Criar Conta'}
         </button>
+
+        <div className="mt-6 text-center">
+          <span className="text-[#A1A1AA] text-xs">Já tem uma conta? </span>
+          <Link href="/login" className="text-[#FFE600] text-xs font-bold hover:underline">
+            Fazer login
+          </Link>
+        </div>
       </form>
     </div>
   );

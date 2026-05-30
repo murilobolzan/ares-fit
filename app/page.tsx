@@ -262,7 +262,7 @@ export default function LandingPage() {
             <p className="text-[#A1A1AA] text-xs font-bold uppercase tracking-widest">Acompanhe seus treinos!</p>
           </div>
           <div className="pt-6 md:pt-0">
-            <p className="mb-1"><AnimatedCounter value="Qualquer tipo de treino!" /></p>
+            <p className="mb-1"><AnimatedCounter value="100+" /></p>
             <p className="text-[#A1A1AA] text-xs font-bold uppercase tracking-widest">Treinos Registrados</p>
           </div>
           <div className="pt-6 md:pt-0">
